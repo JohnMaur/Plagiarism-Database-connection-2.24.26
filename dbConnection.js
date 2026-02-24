@@ -11,7 +11,7 @@ app.use(cors({ origin: "*" }));
 app.use(bodyParser.json()); // Parse JSON request bodies
 
 // MongoDB URI and client setup
-const uri = process.env.MONGO_URI;
+const uri = "mongodb+srv://bdictuz14:6rxKFDaZ1PsmAOEC@cluster0.qjugz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -110,6 +110,79 @@ app.post('/api/login', async (req, res) => {
 // Example protected route
 app.get('/api/protected', authenticateToken, (req, res) => {
   res.status(200).json({ message: 'Access granted.', user: req.user });
+});
+
+// API to change password
+app.post('/api/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    const username = req.user.username;
+
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ message: "Invalid password." });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db.collection('users').updateOne(
+      { username },
+      { $set: { password: hashedPassword } }
+    );
+
+    return res.status(200).json({ message: "Password changed successfully." });
+  } catch (err) {
+    console.error('Error changing password:', err);
+    return res.status(500).json({ message: "Internal server error." });
+  }
+});
+
+// API to update user profile (requires authentication)
+app.put('/api/update-profile', authenticateToken, async (req, res) => {
+  try {
+    const { email, fullName, address } = req.body;
+    const username = req.user.username; // Extract username from JWT
+
+    if (!email && !fullName && !address) {
+      return res.status(400).json({ message: "No update data provided." });
+    }
+
+    // Update user details
+    const updateFields = {};
+    if (email) updateFields.email = email;
+    if (fullName) updateFields.fullName = fullName;
+    if (address) updateFields.address = address;
+
+    const result = await db.collection('users').updateOne(
+      { username },
+      { $set: updateFields }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ message: "User not found or no changes made." });
+    }
+
+    return res.status(200).json({ message: "Profile updated successfully." });
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    return res.status(500).json({ message: "Internal server error." });
+  }
+});
+
+app.get('/api/user-profile', authenticateToken, async (req, res) => {
+  try {
+    const user = await db.collection('users').findOne(
+      { username: req.user.username },
+      { projection: { email: 1, fullName: 1, address: 1, _id: 0 } } // Only return these fields
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    res.status(200).json(user);
+  } catch (err) {
+    console.error('Error fetching user profile:', err);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
 });
 
 // Start the server
