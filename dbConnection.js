@@ -11,7 +11,7 @@ app.use(cors({ origin: "*" }));
 app.use(bodyParser.json()); // Parse JSON request bodies
 
 // MongoDB URI and client setup
-const uri = "mongodb+srv://bdictuz14:6rxKFDaZ1PsmAOEC@cluster0.qjugz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const uri = process.env.MONGO_URI;
 
 const client = new MongoClient(uri, {
   serverApi: {
